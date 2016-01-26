@@ -36,7 +36,7 @@ class DoctrineEncryptSubscriber implements EventSubscriber {
      * @var Doctrine\Common\Annotations\Reader
      */
     private $annReader;
-    
+
     /**
      * Registr to avoid multi decode operations for one entity
      * @var array
@@ -56,7 +56,7 @@ class DoctrineEncryptSubscriber implements EventSubscriber {
     /**
      * Listen a prePersist lifecycle event. Checking and encrypt entities
      * which have @Encrypted annotation
-     * @param LifecycleEventArgs $args 
+     * @param LifecycleEventArgs $args
      */
     public function prePersist(LifecycleEventArgs $args) {
         $entity = $args->getEntity();
@@ -64,14 +64,26 @@ class DoctrineEncryptSubscriber implements EventSubscriber {
     }
 
     /**
+     * Listen a postPresist lifecycle event.
+     *
+     * @param LifecycleEventArgs $args LifecycleEventArgs
+     *
+     * @return void
+     */
+    public function postPersist(LifecycleEventArgs $args) {
+        $this->checkAndReloadEntities($args);
+    }
+
+    /**
      * Listen a preUpdate lifecycle event. Checking and encrypt entities fields
      * which have @Encrypted annotation. Using changesets to avoid preUpdate event
      * restrictions
-     * @param LifecycleEventArgs $args 
+     * @param LifecycleEventArgs $args
      */
-    public function preUpdate(PreUpdateEventArgs $args) {
+    public function preUpdate(PreUpdateEventArgs $args)
+    {
         $reflectionClass = new ReflectionClass($args->getEntity());
-        $properties = $reflectionClass->getProperties();
+        $properties      = $reflectionClass->getProperties();
         foreach ($properties as $refProperty) {
             if ($this->annReader->getPropertyAnnotation($refProperty, self::ENCRYPTED_ANN_NAME)) {
                 $propName = $refProperty->getName();
@@ -79,20 +91,42 @@ class DoctrineEncryptSubscriber implements EventSubscriber {
             }
         }
     }
-    
     /**
-     * Listen a postLoad lifecycle event. Checking and decrypt entities
-     * which have @Encrypted annotations
-     * @param LifecycleEventArgs $args 
+     * Listen a postUpdate lifecycle event.
+     *
+     * @param LifecycleEventArgs $args LifecycleEventArgs
+     *
+     * @return void
+     */
+    public function postUpdate(LifecycleEventArgs $args) {
+        $this->checkAndReloadEntities($args);
+    }
+
+    /**
+     * Listen a postLoad lifecycle event.
+     *
+     * @param LifecycleEventArgs $args LifecycleEventArgs
+     *
+     * @return void
      */
     public function postLoad(LifecycleEventArgs $args) {
+        $this->checkAndReloadEntities($args);
+    }
+
+    /**
+     * Checking and decrypt entities which have @Encrypted annotations
+     *
+     * @param LifecycleEventArgs $args LifecycleEventArgs
+     *
+     * @return void
+     */
+    private function checkAndReloadEntities(LifecycleEventArgs $args) {
         $entity = $args->getEntity();
-        if(!$this->hasInDecodedRegistry($entity, $args->getEntityManager())) {
-            if($this->processFields($entity, false)) {
+        if (!$this->hasInDecodedRegistry($entity, $args->getEntityManager())) {
+            if ($this->processFields($entity, false)) {
                 $this->addToDecodedRegistry($entity, $args->getEntityManager());
             }
         }
-        
     }
 
     /**
@@ -102,7 +136,9 @@ class DoctrineEncryptSubscriber implements EventSubscriber {
     public function getSubscribedEvents() {
         return array(
             Events::prePersist,
+            Events::postPersist,
             Events::preUpdate,
+            Events::postUpdate,
             Events::postLoad,
         );
     }
@@ -148,7 +184,7 @@ class DoctrineEncryptSubscriber implements EventSubscriber {
                 }
             }
         }
-        
+
         return $withAnnotation;
     }
     
